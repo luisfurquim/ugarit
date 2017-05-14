@@ -14,7 +14,7 @@ type Book interface {
 
    // AddPage must create/truncate the file specified by path,
    // register as having the provided mimetype and making to figure in the book index.
-   // If src is nil, it has to return a valid io.WriteCloser.
+   // If src is nil, it has to return a valid io.Writer.
    // If src is not nil, it must copy its content to the file and return a nil io.Writer.
    // If path collides with a reserved path, it must return an error.
    // If the page is to be added to the TOC, it must return a TOCRef object pointing
@@ -24,7 +24,7 @@ type Book interface {
    // AddFile must create/truncate the file specified by path,
    // register as having the provided mimetype.
    // If src is nil, it has to return a valid io.WriteCloser.
-   // If src is not nil, it must copy its content to the file and return a nil io.Writer.
+   // If src is not nil, it must copy its contents to the file and return a nil io.Writer.
    // If path collides with a reserved path, it must return an error.
    AddFile(path string, mimetype string, src io.Reader, id string, options interface{}) (string, io.Writer, error)
 
@@ -34,6 +34,19 @@ type Book interface {
    // must be passed through it before saved in the file.
    // If id!="" it must set the TOC id
    AddTOC(gen IndexGenerator, id string) (string, error)
+
+   // AddCover must create/truncate the file specified by path,
+   // register as having the provided mimetype and making it be the book cover.
+   // If src is nil, it has to return a valid io.Writer.
+   // If src is not nil, it must copy its contents to the file and return a nil io.Writer.
+   // If path collides with a reserved path, it must return an error.
+   AddCover(path string, mimetype string, src io.Reader, options interface{}) (string, io.Writer, error)
+
+   // SpineAttr must set any spine attribute named as key with val
+   // Error checking is allowed but it must fail silently.
+   //  This method may be deprecated if someday it is considered
+   // too much epub addicted
+   SpineAttr(key, val string)
 
    // Closes the Ebook
    Close() error
@@ -52,15 +65,6 @@ type Book interface {
 
    // Opens path...
    Open(path string) (io.reader, error)
-
-   // Change directory
-   Chdir(path string)
-
-   // Get current working directory
-   GetCWD() string
-
-   // List files (basenames) under the current working directory
-   Files() []string
 
    // List all files (absolute pathnames) in the ebook
    AllFiles() []string
@@ -84,6 +88,14 @@ type IndexGenerator interface {
 
    // GetPathName returns the relative pathname of the TOC file
    GetPathName() string
+
+   // GetPropertyValue returns the property value for the TOC
+   // E.G. EPub 3.0 returns 'nav' and EPub 2.o returns ''
+   GetPropertyValue() string
+
+   // GetId returns the Id value for the TOC file in the manifest
+   // E.G. EPub 3.0 returns 'nav' and EPub 2.o returns 'ncx'
+   GetId() string
 }
 
 type TOC interface {
@@ -106,6 +118,13 @@ type TOCRef interface {
 type SectionStyle interface {
    Prefix() string
    Number(root string, number int) string
+}
+
+type Versioner interface {
+   // The versioner compliant object musst provide a Next method
+   // which must provide a new unique version string each time
+   // it is called
+   Next() string
 }
 
 type ArabicNumbering struct {
@@ -215,4 +234,5 @@ func NewLowerLetterNumbering(prefix string, useHierarchy bool) LowerLetterNumber
 var ErrorInvalidOptionType error = errors.New("Invalid option type")
 var ErrorInvalidPathname error = errors.New("Invalid pathname")
 var ErrorTOCItemTitleNotFound error = errors.New("TOC item title not found")
+var ErrorReservedId error = errors.New("Reserved Id")
 

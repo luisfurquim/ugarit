@@ -1,9 +1,8 @@
-package epub30
+package epub20
 
 import (
    "io"
    "fmt"
-   "time"
    "strings"
    "io/ioutil"
    "archive/zip"
@@ -12,52 +11,25 @@ import (
    "golang.org/x/net/html"
    "golang.org/x/net/html/atom"
    "github.com/luisfurquim/ugarit"
-   "github.com/PuerkitoBio/goquery"
 )
 
 
-
 // Create a blank EPub Book
-//
-// Parameters:
-//
-// @Target -- where to save the epub contents
-//
-// @Title -- eBook title
-//
-// @Language -- eBook language
-//
-// @identifier -- eBook ID
-//
-// @Creator -- eBook author(s)
-//
-// @Publisher -- eBook Publisher(s)
-//
-// @Date -- Date published
-//
-// @signature -- Ignored for now :(
-//
-// @metatag -- Any epub metatags go here
-//
-// @PageProgression -- PageProgression use "ltr" (left-to-right) or "rtl" (right-to-left)
-//
-// @bookversion -- provide a versioner interface or use the package provided one which just generate a version string using the current time
 func New(
-      Target            io.WriteCloser, // where to save the epub contents
-      Title           []string,         // eBook title
-      Language        []string,         // eBook language
-      identifier      []string,         // eBook ID
-      Creator         []Author,         // eBook author(s)
-      Publisher       []string,         // eBook Publisher(s)
-      Date            []Date,           // Date published
-      signature         Signature,      // Ignored for now :(
-      metatag         []Metatag,        // Any epub metatags go here
-      PageProgression   string,         // PageProgression use "ltr" (left-to-right) or "rtl" (right-to-left)
-      // provide a versioner interface or use the package provided one
-      // which just generate a version string using the current time
-      bookversion ugarit.Versioner) (*Book, error) {
+      target            io.WriteCloser,
+      Title           []string,
+      Language        []string,
+      identifier      []string,
+      Creator         []Author,
+      Publisher       []string,
+      Date            []Date,
+      signature         Signature,
+      metatag         []Metatag,
+      PageProgression   string) (*Book, error) {
+
    var b Book
    var Sig *Signature
+   var lang string
    var ids []Identifier
 
    b.RootFolder = "OEBPS"
@@ -65,7 +37,7 @@ func New(
    b.index = make([]*TOCContent,0,4)
    b.cwd = "/"
    b.fd  = target
-   b.zfd = zip.NewWriter(Target)
+   b.zfd = zip.NewWriter(target)
 
 
    header := &zip.FileHeader{
@@ -90,6 +62,20 @@ func New(
        return nil, err
    }
 
+
+   if (len(metatag)>0) {
+      if (len(Language)>0) {
+         lang = strings.Join(Language,",")
+      } else {
+         lang = "en"
+      }
+
+      for i, _ := range metatag {
+         metatag[i].Langattr = lang
+      }
+   }
+
+
    ids = make([]Identifier,len(identifier))
    for i, id := range identifier {
       ids[i] = Identifier{
@@ -98,19 +84,9 @@ func New(
       }
    }
 
-   if bookversion != nil {
-      metatag = append(metatag,Metatag{
-         Property: "ibooks:version",
-         Data: bookversion.Next(),
-      })
-   }
-
    b.Package = Package{
-      Version: "3.0",
+      Version: "2.0",
       Xmlns:   "http://www.idpf.org/2007/opf",
-      XmlnsDc: "http://purl.org/dc/elements/1.1/",
-      XmlnsDcterms: "http://purl.org/dc/terms/",
-      Prefix:  "ibooks: http://vocabulary.itunes.apple.com/rdf/ibooks/vocabulary-extensions-1.0/",
       UID:     "pub-id",
       Metadata: Metadata{
          Xmlns:      "http://purl.org/dc/elements/1.1/",
@@ -134,28 +110,14 @@ func New(
       b.Package.Spine.PageProgression = PageProgression
    }
 
-   if len(Language) > 0 {
-      b.Package.Langattr = Language[0]
-   } else {
-      b.Package.Langattr = "en"
-   }
-
    b.subSection = ugarit.NewArabicNumbering("Chapter",true)
 
    return &b, nil
 }
 
-// AddPage saves the page to the E-Book and adds an entry in the Spine pointing to it.
-// It calls AddFile. So, if you use this method, you don't need to call AddFile to save it,
+// AddPage saves the page to the E-Book and adds an entry in the TOC pointing to it
+// It calls AddFile. So, if you use this method, you don't need to call AddFile to save it
 // otherwise it will be stored twice in the E-Book file.
-// AddPage creates/truncates the file specified by path inside the epub file,
-// register as having the provided mimetype and making it to figure in the book index.
-// If src is nil, it returns a valid io.Writer.
-// If src is not nil, it copies its content to the file and return a nil io.Writer.
-// If path collides with a reserved path, it returns an error.
-// If the page is to be added to the TOC, provide an EPubOptions object containing
-// a TOCTitle and a TOCItemTitle; OR a TOCContent object.
-// TOC support is still alpha code and will be improved in the future
 func (b *Book) AddPage(path string, mimetype string, src io.Reader, id string, options interface{}) (string, io.Writer, ugarit.TOCRef, error) {
    var w io.Writer
    var err error
@@ -239,12 +201,7 @@ func (b *Book) AddPage(path string, mimetype string, src io.Reader, id string, o
 }
 
 
-// AddCover saves the Cover in the E-Book. Use it before saving any content to the E-Book.
-// AddCover creates/truncates the file specified by path inside the epub file,
-// registers as having the provided mimetype and makes it be the book cover.
-// If src is nil, it returns a valid io.Writer.
-// If src is not nil, it copies its contents to the file and returns a nil io.Writer.
-// If path collides with a reserved path, it returns an error.
+// AddCover saves the Cover in the E-Book. Use it before saving any content to the E-Book
 func (b *Book) AddCover(path string, mimetype string, src io.Reader, options interface{}) (string, io.Writer, error) {
    var w io.Writer
    var err error
@@ -266,7 +223,7 @@ func (b *Book) AddCover(path string, mimetype string, src io.Reader, options int
 
    b.Package.Metadata.Metatag = append(b.Package.Metadata.Metatag,Metatag{
       Name:"cover",
-      Content:"cover",
+      Content:"cover-image",
    })
 
    if mimetype == "image/svg+xml" {
@@ -278,10 +235,9 @@ func (b *Book) AddCover(path string, mimetype string, src io.Reader, options int
       extension = filepath.Ext(path)
       pathhtml = path[:len(path)-len(extension)] + ".xhtml"
       src = strings.NewReader(fmt.Sprintf(svgcover,svgcontent))
-      fileprop = prop[prop_CoverImage]
 
    } else if mimetype[:6] == "image/" {
-      id, w, err = b.addFile(path, mimetype, src, "cover-image", opt, prop[prop_CoverImage])
+      id, w, err = b.addFile(path, mimetype, src, "cover-image", opt, "")
       if err != nil {
          return "", w, err
       }
@@ -301,16 +257,13 @@ func (b *Book) AddCover(path string, mimetype string, src io.Reader, options int
       return "", w, err
    }
 
-   b.Package.Spine.Itemref = append(b.Package.Spine.Itemref,SpineItem{IDref: id, Linear:"yes"})
+   b.Package.Spine.Itemref = append(b.Package.Spine.Itemref,SpineItem{IDref: id, Linear:"no"})
    b.Package.Guide.Reference = []Reference{Reference{Href: pathhtml, Type:"cover", Title:"Cover"}}
 
    return id, w, nil
 }
 
-// AddTOC saves the TOC file to the E-Book. Use it just before closing the E-Book.
-// AddTOC creates/truncates the TOC file when the book is closed.
-// If IndexGenerator != nil,  the generated html nodes are be passed through it before saved in the file.
-// If id!="" it sets the TOC id.
+// AddTOC saves the TOC file to the E-Book. Use it just before closing the E-Book
 func (b *Book) AddTOC(gen ugarit.IndexGenerator, id string) (string, error) {
    var err error
    var r io.Reader
@@ -350,8 +303,7 @@ func (b *Book) AddTOC(gen ugarit.IndexGenerator, id string) (string, error) {
       return "", err
    }
 
-   id, _, err = b.addFile(gen.GetPathName(), gen.GetMimeType(), r, id, &EPubOptions{}, gen.GetPropertyValue())
-   fmt.Printf("\nSaved TOC: %s\n\n",err)
+   id, _, err = b.addFile(gen.GetPathName(), gen.GetMimeType(), r, "ncx", nil, "")
 
    return id, err
 }
@@ -419,11 +371,6 @@ func (tc *TOCContent) SubSectionStyle(sty ugarit.SectionStyle) {
 
 
 // AddFile stores the file in the E-Book. It does not include it in the TOC.
-// AddFile creates/truncates the file specified by path,
-// register as having the provided mimetype.
-// If src is nil, it returns a valid io.Writer.
-// If src is not nil, it copies its contents to the file and return a nil io.Writer.
-// If path collides with a reserved path, it returns an error.
 func (b *Book) AddFile(path string, mimetype string, src io.Reader, id string, options interface{}) (string, io.Writer, error) {
    var opt *EPubOptions
    var optProp string
@@ -453,10 +400,6 @@ func (b *Book) AddFile(path string, mimetype string, src io.Reader, id string, o
       }
    }
 
-   if opt!=nil && opt.Prop>prop_Min && opt.Prop<prop_Max {
-      optProp = prop[opt.Prop]
-   }
-
    return b.addFile(path, mimetype, src, id, opt, optProp)
 }
 
@@ -474,7 +417,6 @@ func (b *Book) addFile(path string, mimetype string, src io.Reader, id string, o
       ID: id,
       Href: path,
       MediaType: mimetype,
-      Properties: optProp,
    })
 
    return b.addfile(path, src, id)
@@ -519,14 +461,6 @@ func (b *Book) SpineAttr(key, val string) {
 func (b *Book) Close() error {
    var enc *xml.Encoder
 
-
-   b.Package.Metadata.Metatag = append(
-      b.Package.Metadata.Metatag,
-      Metatag{
-         Property: "dcterms:modified",
-         Data: time.Now().Format("2006-01-02T15:04:05Z"),
-      })
-
    f, err := b.zfd.Create(b.RootFolder + "/content.opf")
    if err != nil {
        return err
@@ -550,108 +484,83 @@ func (b *Book) Close() error {
 }
 
 // Creates an index generator object
-func NewIndexGenerator() (*IndexGenerator, error) {
+func NewIndexGenerator(lang string, uid string, tit string, auth string, b ugarit.Book) (*IndexGenerator, error) {
    var ig IndexGenerator
-   var err error
-   var node *html.Node
 
-   ig.doc, err = goquery.NewDocumentFromReader(strings.NewReader(nav))
-   if err != nil {
-      return nil, err
-   }
+   b.SpineAttr("toc","ncx")
 
-   ig.curr = ig.doc.Find("#TOClevel0").Nodes[0]
-
-   node = &html.Node{
-      Type: html.TextNode,
-      Data:       "Cover",
-   }
-
-   node = &html.Node{
-      FirstChild: node,
-      LastChild:  node,
-      Type:       html.ElementNode,
-      DataAtom:   atom.A,
-      Data:       "a",
-      Attr: []html.Attribute{
-         html.Attribute{
-            Key: "href",
-            Val: "cover.html",
+   ig.doc = Ncx{
+      Version: "2005-1",
+      Langattr: lang,
+      Xmlns: "http://www.daisy.org/z3986/2005/ncx/",
+      Metatag: []Metatag{
+         Metatag{
+            Name: "dtb:uid",
+            Content: uid,
          },
-         html.Attribute{
-            Key: "epub:type",
-            Val: "cover",
+         Metatag{
+            Name: "cover",
+            Content: "cover",
          },
       },
+      Title: tit,
+      Author: auth,
+      Points:    []NavPoint{},
+//      Pages:     []PageTarget{},
    }
 
-   ig.doc.Find("#lmarks").Nodes[0].AppendChild(
-      &html.Node{
-         FirstChild: node,
-         LastChild:  node,
-         Type:       html.ElementNode,
-         DataAtom:   atom.Li,
-         Data:       "li",
-      })
+   ig.curr = &ig.doc.Points
    return &ig, nil
 }
 
-//        <li><a href="titlepg.xhtml" epub:type="titlepage">Title Page</a></li>
-//        <li><a href="chapter.xhtml" epub:type="bodymatter">Start</a></li>
-//        <li><a href="bibliog.xhtml" epub:type="bibliography">Bibliography</a></li>
-
 // AddItem adds a new TOC entry
-func (gen IndexGenerator) AddItem(item *html.Node) error {
-   gen.curr.AppendChild(
-      &html.Node{
-         FirstChild: item,
-         LastChild:  item,
-         Type:       html.ElementNode,
-         DataAtom:   atom.Li,
-         Data:       "li",
-      })
+func (gen *IndexGenerator) AddItem(item *html.Node) error {
+   *gen.curr = append(*gen.curr,NavPoint{
+      Id:        item.Attr[1].Val,
+      PlayOrder: item.Attr[1].Val[2:],
+      Label:     item.FirstChild.Data,
+      Content:   Content{
+         Src: item.Attr[0].Val,
+      },
+      Points:  []NavPoint{},
+   })
    return nil
 }
 
 // GetDocument returns the XHTML content of the TOC file
-func (gen IndexGenerator) GetDocument() (io.Reader, error) {
-   var doc string
+func (gen *IndexGenerator) GetDocument() (io.Reader, error) {
+   var doc []byte
    var err error
 
-   doc, err = gen.doc.Html()
+   doc, err = xml.Marshal(gen.doc)
    if err != nil {
       return nil, err
    }
 
-   doc = doc[59:]
-
-   return strings.NewReader(doc), nil
+   return strings.NewReader(xml.Header + string(doc)), nil
 }
 
 
 
 // GetMimeType returns the mimetype of the TOC file.
-func (gen IndexGenerator) GetMimeType() string {
-   return "application/xhtml+xml"
+func (gen *IndexGenerator) GetMimeType() string {
+   return "application/x-dtbncx+xml"
 }
 
 // GetPathName returns the relative pathname of the TOC file
-func (gen IndexGenerator) GetPathName() string {
-   return "index.xhtml"
+func (gen *IndexGenerator) GetPathName() string {
+   return "toc.ncx"
 }
 
 // GetPropertyValue returns the the value to set in the property attribute
-// of the TOC OPF entry.
+// of the TOC OPF entry. It is not defined in the EPub 2.x specs.
 func (gen IndexGenerator) GetPropertyValue() string {
-   return "nav"
+   return ""
 }
 
 // GetId returns the ID to use in the TOC OPF entry and the Spine TOC reference.
 func (gen IndexGenerator) GetId() string {
-   return "nav"
+   return "ncx"
 }
 
-// Simple E-Book versioner
-func (v Versioner) Next() string {
-   return time.Now().Format("20060102150405")
-}
+

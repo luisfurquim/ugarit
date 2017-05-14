@@ -1,11 +1,9 @@
-package epub30
+package epub20
 
 import (
    "io"
    "archive/zip"
-   "golang.org/x/net/html"
    "github.com/luisfurquim/ugarit"
-   "github.com/PuerkitoBio/goquery"
 )
 
 type EPubOptions struct {
@@ -30,6 +28,45 @@ type TOCContent struct {
    subSection ugarit.SectionStyle
 }
 
+
+//Ncx OPS/toc.ncx
+type Ncx struct {
+   XMLName     struct{}   `xml:"ncx"`
+   Version     string     `xml:"version,attr"`
+   Langattr    string     `xml:"xml:lang,attr"`
+   Xmlns       string     `xml:"xmlns,attr"`
+   Metatag   []Metatag    `xml:"head>meta"`
+   Title       string     `xml:"docTitle>text,omitempty"`
+   Author      string     `xml:"docAuthor>text,omitempty"`
+   Points    []NavPoint   `xml:"navMap>navPoint"`
+   Pages     []PageTarget `xml:"pageList,omitempty"`
+}
+
+//NavPoint nav point
+type NavPoint struct {
+   Id        string   `xml:"id,attr"`
+   PlayOrder string   `xml:"playOrder,attr"`
+   Label     string   `xml:"navLabel>text"`
+   Content   Content  `xml:"content"`
+   Points  []NavPoint `xml:"navPoint"`
+}
+
+//Content nav-point content
+type Content struct {
+   Src string `xml:"src,attr"`
+}
+
+
+type PageTarget struct {
+   XMLName struct{}   `xml:"pageTarget"`
+   Id      string     `xml:"id,attr"`
+   Type    string     `xml:"type,attr"`
+   Value   string     `xml:"value,attr"`
+   Label   string     `xml:"navLabel>text"`
+   Content Content    `xml:"content"`
+}
+
+
 // Book epub book
 type Book struct {
    Package       Package       `xml:"package"`
@@ -44,18 +81,14 @@ type Book struct {
 
 //Package content.opf
 type Package struct {
-   XMLName      struct{}   `xml:"package"`
-   Version      string     `xml:"version,attr"`
-   Langattr     string     `xml:"xml:lang,attr"`
-   Xmlns        string     `xml:"xmlns,attr"`
-   XmlnsDc      string     `xml:"xmlns:dc,attr"`
-   XmlnsDcterms string     `xml:"xmlns:dcterms,attr"`
-   Prefix       string     `xml:"prefix,attr"`
-   UID          string     `xml:"unique-identifier,attr"`
-   Metadata     Metadata   `xml:"metadata"`
-   Manifest   []Manifest   `xml:"manifest>item"`
-   Spine        Spine      `xml:"spine"`
-   Guide        Guide      `xml:"guide,omitempty"`
+   XMLName    struct{}   `xml:"package"`
+   Version    string     `xml:"version,attr"`
+   Xmlns      string     `xml:"xmlns,attr"`
+   UID        string     `xml:"unique-identifier,attr"`
+   Metadata   Metadata   `xml:"metadata"`
+   Manifest []Manifest   `xml:"manifest>item"`
+   Spine      Spine      `xml:"spine"`
+   Guide      Guide      `xml:"guide,omitempty"`
 }
 
 //Metadata metadata
@@ -101,7 +134,6 @@ type Signature struct {
 type Metatag struct {
    Name     string `xml:"name,attr,omitempty"`
    Langattr string `xml:"xml:lang,attr,omitempty"`
-   Property string `xml:"property,attr,omitempty"`
    Content  string `xml:"content,attr,omitempty"`
    Data     string `xml:",chardata"`
 }
@@ -111,8 +143,6 @@ type Manifest struct {
    ID            string `xml:"id,attr,omitempty"`
    Href          string `xml:"href,attr"`
    MediaType     string `xml:"media-type,attr"`
-//   MediaFallback string `xml:"media-fallback,attr"`
-   Properties    string `xml:"properties,attr,omitempty"`
    MediaOverlay  string `xml:"media-overlay,attr,omitempty"`
 }
 
@@ -143,29 +173,12 @@ type Reference struct {
 }
 
 type IndexGenerator struct {
-   doc *goquery.Document
-   curr *html.Node
+   doc Ncx
+   curr *[]NavPoint
 }
 
 
 type Store struct {
    w io.Writer
 }
-
-type Versioner struct{}
-
-const (
-   prop_Min int = iota
-
-   Prop_Mathml // mathml
-   Prop_RemoteResources // remote-resources
-   Prop_Scripted // scripted
-   Prop_Svg // svg
-
-   prop_Max
-   prop_CoverImage // cover-image
-   prop_Nav // nav
-)
-
-var prop []string = []string{"", "mathml", "remote-resources", "scripted", "svg", "", "cover-image", "nav"}
 
