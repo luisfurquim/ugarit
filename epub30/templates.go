@@ -1,6 +1,5 @@
 package epub30
 
-
 var imgcover string = `<?xml version="1.0" ?>
 <html xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml">
  <head>
@@ -23,7 +22,6 @@ img {
  </body>
 </html>`
 
-
 var nav string = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE html>
 <html xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml">
@@ -36,7 +34,6 @@ var nav string = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
   <nav epub:type="landmarks"><ol id="lmarks"></ol></nav>
  </body>
 </html>`
-
 
 var svgcover string = `<?xml version="1.0" ?>
 <html xmlns:epub="http://www.idpf.org/2007/ops" xmlns="http://www.w3.org/1999/xhtml">
@@ -60,10 +57,9 @@ body {
  </body>
 </html>`
 
-
 var rootfolder string = `<?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">` +
- `<rootfiles>` +
-  `<rootfile full-path="%s/content.opf" media-type="application/oebps-package+xml" />` +
- `</rootfiles>` +
-`</container>`
+	`<rootfiles>` +
+	`<rootfile full-path="%s/content.opf" media-type="application/oebps-package+xml" />` +
+	`</rootfiles>` +
+	`</container>`
