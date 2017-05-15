@@ -62,7 +62,7 @@ func New(
 
 	b.index = make([]*TOCContent, 0, 4)
 	b.cwd = "/"
-	b.fd = target
+	b.fd = Target
 	b.zfd = zip.NewWriter(Target)
 
 	header := &zip.FileHeader{
@@ -132,8 +132,8 @@ func New(
 
 	if len(Language) > 0 {
 		b.Package.Langattr = Language[0]
-	} else {
-		b.Package.Langattr = "en"
+		// } else {
+		//    b.Package.Langattr = "en"
 	}
 
 	b.subSection = ugarit.NewArabicNumbering("Chapter", true)
@@ -446,9 +446,9 @@ func (b *Book) AddFile(path string, mimetype string, src io.Reader, id string, o
 }
 
 func (b *Book) addFile(path string, mimetype string, src io.Reader, id string, opt *EPubOptions, optProp string) (string, io.Writer, error) {
-	if b.Package.Manifest == nil {
-		b.Package.Manifest = []Manifest{}
-	}
+	//   if b.Package.Manifest == nil {
+	//      b.Package.Manifest = []Manifest{}
+	//   }
 
 	if id == "" {
 		id = fmt.Sprintf("pg%d", b.fid)
