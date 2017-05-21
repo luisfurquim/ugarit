@@ -41,29 +41,29 @@ import (
 //
 // @bookversion -- provide a versioner interface or use the package provided one which just generate a version string using the current time
 func New(
-	Target io.WriteCloser, // where to save the epub contents
-	Title []string, // eBook title
-	Language []string, // eBook language
+	target io.WriteCloser, // where to save the epub contents
+	title []string, // eBook title
+	language []string, // eBook language
 	identifier []string, // eBook ID
-	Creator []Author, // eBook author(s)
-	Publisher []string, // eBook Publisher(s)
-	Date []Date, // Date published
+	creator []Author, // eBook author(s)
+	publisher []string, // eBook Publisher(s)
+	date []Date, // Date published
 	signature Signature, // Ignored for now :(
 	metatag []Metatag, // Any epub metatags go here
-	PageProgression string, // PageProgression use "ltr" (left-to-right) or "rtl" (right-to-left)
+	pageProgression string, // PageProgression use "ltr" (left-to-right) or "rtl" (right-to-left)
 	// provide a versioner interface or use the package provided one
 	// which just generate a version string using the current time
 	bookversion ugarit.Versioner) (*Book, error) {
 	var b Book
-	var Sig *Signature
+	var sig *Signature
 	var ids []Identifier
 
 	b.RootFolder = "OEBPS"
 
 	b.index = make([]*TOCContent, 0, 4)
 	b.cwd = "/"
-	b.fd = Target
-	b.zfd = zip.NewWriter(Target)
+	b.fd = target
+	b.zfd = zip.NewWriter(target)
 
 	header := &zip.FileHeader{
 		Name:   "mimetype",
@@ -111,27 +111,27 @@ func New(
 		UID:          "pub-id",
 		Metadata: Metadata{
 			Xmlns:      "http://purl.org/dc/elements/1.1/",
-			Title:      Title,
-			Language:   Language,
+			Title:      title,
+			Language:   language,
 			Identifier: ids,
-			Creator:    Creator,
-			Publisher:  Publisher,
-			Date:       Date,
-			Signature:  Sig,
+			Creator:    creator,
+			Publisher:  publisher,
+			Date:       date,
+			Signature:  sig,
 			Metatag:    metatag,
 		},
-		Manifest: []Manifest{},
-		Spine: Spine{
-			Itemref: []SpineItem{},
-		},
+		//    Spine: Spine{
+		//       Itemref: []SpineItem{},
+		//    },
 	}
 
-	if PageProgression != "" {
-		b.Package.Spine.PageProgression = PageProgression
+	if pageProgression != "" {
+		b.Package.Spine.PageProgression = pageProgression
 	}
 
-	if len(Language) > 0 {
-		b.Package.Langattr = Language[0]
+	b.Package.Langattr = "en"
+	if len(language) > 0 {
+		b.Package.Langattr = language[0]
 		// } else {
 		//    b.Package.Langattr = "en"
 	}
