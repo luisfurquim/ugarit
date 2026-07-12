@@ -57,6 +57,7 @@ type Book struct {
    subSection ugarit.SectionStyle
    RootFolder string
    ManifIndex map[string]string `xml:"-"`
+   coverPath  string // set by AddCover; AddTOC uses it for the cover landmark
 }
 
 //Package content.opf

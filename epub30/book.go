@@ -361,6 +361,7 @@ func (b *Book) AddCover(path string, mimetype string, src io.Reader, options int
 
    b.Package.Spine.Itemref = append(b.Package.Spine.Itemref, SpineItem{IDref: id, Linear: "yes"})
    b.Package.Guide.Reference = []Reference{Reference{Href: pathhtml, Type: "cover", Title: "Cover"}}
+   b.coverPath = pathhtml
 
    return id, w, nil
 }
@@ -428,6 +429,14 @@ func (b *Book) AddTOC(gen ugarit.IndexGenerator, id string) (string, error) {
       id = gen.GetId()
    }
 
+   // The cover landmark is only real when AddCover ran; a dangling
+   // cover.xhtml reference fails epubcheck on coverless books.
+   if b.coverPath != "" {
+      if ig, ok := gen.(*IndexGenerator); ok {
+         ig.AddLandmark(b.coverPath, "cover", "Cover")
+      }
+   }
+
    err = mkTOC(b, gen, b.Package.Manifest)
    if err != nil {
       return id, err
@@ -444,6 +453,12 @@ func (b *Book) AddTOC(gen ugarit.IndexGenerator, id string) (string, error) {
       id, _, err = b.addFile(path, gen.GetMimeType(), r, id, &EPubOptions{Prop: []int{prop_Nav}}, nil)
    } else {
       id, _, err = b.addFile(path, gen.GetMimeType(), r, id, &EPubOptions{}, nil)
+   }
+   if err == nil {
+      // The TOC page reads BEFORE the content, printed-book order. Out of
+      // the spine its placement is reader-defined (some append it at the
+      // END of the book); first is the only deterministic choice.
+      b.Package.Spine.Itemref = append([]SpineItem{{IDref: id}}, b.Package.Spine.Itemref...)
    }
 //   id, _, err = b.addFile(path, gen.GetMimeType(), r, id, &EPubOptions{}, []string{gen.GetPropertyValue()})
    //fmt.Printf("\nSaved TOC: %s\n\n", err)
@@ -734,7 +749,6 @@ func (b *Book) AddMetadata(key, val string) {
 func NewIndexGenerator(title ...string) (*IndexGenerator, error) {
    var ig IndexGenerator
    var err error
-   var node *html.Node
    var tpl string
 
    if len(title) > 0 {
@@ -750,9 +764,18 @@ func NewIndexGenerator(title ...string) (*IndexGenerator, error) {
 
    ig.curr = &[]*html.Node{ig.doc.Find("#TOClevel0").Nodes[0]}
 
+   return &ig, nil
+}
+
+// AddLandmark appends one entry to the landmarks nav. The cover landmark
+// is added automatically by AddTOC when the book has a cover; callers may
+// add others (titlepage, bodymatter, bibliography...).
+func (gen *IndexGenerator) AddLandmark(href, epubType, label string) {
+   var node *html.Node
+
    node = &html.Node{
       Type: html.TextNode,
-      Data: "Cover",
+      Data: label,
    }
 
    node = &html.Node{
@@ -764,16 +787,16 @@ func NewIndexGenerator(title ...string) (*IndexGenerator, error) {
       Attr: []html.Attribute{
          html.Attribute{
             Key: "href",
-            Val: "cover.xhtml",
+            Val: href,
          },
          html.Attribute{
             Key: "epub:type",
-            Val: "cover",
+            Val: epubType,
          },
       },
    }
 
-   ig.doc.Find("#lmarks").Nodes[0].AppendChild(
+   gen.doc.Find("#lmarks").Nodes[0].AppendChild(
       &html.Node{
          FirstChild: node,
          LastChild:  node,
@@ -781,7 +804,6 @@ func NewIndexGenerator(title ...string) (*IndexGenerator, error) {
          DataAtom:   atom.Li,
          Data:       "li",
       })
-   return &ig, nil
 }
 
 //        <li><a href="titlepg.xhtml" epub:type="titlepage">Title Page</a></li>
@@ -863,6 +885,12 @@ func (gen *IndexGenerator) EndSection() error {
 func (gen *IndexGenerator) GetDocument() (io.Reader, error) {
    var doc string
    var err error
+
+   // An empty <ol> is invalid; a landmarks nav with no entries goes away.
+   lmarks := gen.doc.Find("#lmarks")
+   if lmarks.Length() > 0 && lmarks.Children().Length() == 0 {
+      lmarks.Parent().Remove()
+   }
 
    doc, err = gen.doc.Html()
    if err != nil {

@@ -1,5 +1,20 @@
 package epub30_test
 
+import (
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/luisfurquim/ugarit"
+	"github.com/luisfurquim/ugarit/epub20"
+	"github.com/luisfurquim/ugarit/epub30"
+)
+
+// Example shows the full authoring flow. It has no Output directive on
+// purpose: it needs a cover.jpg on disk, so it must compile — keeping the
+// documentation honest — but never run as a test.
 func Example() {
 	var err error
 	var b ugarit.Book
@@ -99,5 +114,4 @@ func Example() {
 	// You MUST close the eBook, some important operations are done upon closing
 	b.Close()
 
-	// Output: Hello
 }
