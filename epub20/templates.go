@@ -76,3 +76,7 @@ var rootfolder string = `<?xml version="1.0"?>
 	`<rootfile full-path="%s/content.opf" media-type="application/oebps-package+xml" />` +
 	`</rootfiles>` +
 	`</container>`
+
+var iBooksFonts string = `<?xml version="1.0" encoding="UTF-8"?>
+<display_options><platform name="*"><option name="specified-fonts">true</option></platform></display_options>`
+
